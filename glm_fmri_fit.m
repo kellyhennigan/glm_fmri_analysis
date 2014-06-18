@@ -33,7 +33,7 @@ function stats = glm_fmri_fit(Y,X,regIdx)
 %% define some useful variables 
 
 [nt,np] = size(X);      % # of time points and model parameters
-df = nt - np - 1;       % degrees of freedom
+df = nt - np;       % degrees of freedom
 
 if size(Y,1)~=nt        % if the data and model # of rows aren't equal,
         error('# of rows in data and model must be equal');
@@ -58,7 +58,7 @@ SSt = sum( (Y - repmat(mean(Y),nt,1)).^2 );   % sum of squares (total)
 
 SSe = sum( (Y - Yhat).^2 );      % sum of squares (error)
 
-MSe = SSe./(nt-np-1);                   % mean sq error aka error variance
+MSe = SSe./df;                   % mean sq error aka error variance
 
 seB = sqrt(diag(pinv(X'*X))*MSe);   % standard error of beta coefficients
 
@@ -81,7 +81,7 @@ stats.tB = tB;
 stats.pB = pB;
 stats.Rsq = Rsq;
 stats.err_ts = err_ts;
-
+stats.df = df;
 
 %% if regIdx is given, test the null hypothesis that the full model is 
 % no better than the baseline model

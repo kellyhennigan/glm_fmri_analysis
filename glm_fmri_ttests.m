@@ -7,12 +7,14 @@
 irf = 'spm_hrf';
 % irf = 'per_trial';
 
-inDir = ['/home/kelly/ShockAwe/data/results_',irf,'_s5'];  % relative to subject directory
-outDir = ['/home/kelly/ShockAwe/data/ttests_',irf,'_s5'];  % relative to subject directory
-saveFiles = 1; % if 1, save out nifti and afni files
+mainDir = '/Users/Kelly/ShockAwe/data/';
 
-maskFile = '/home/kelly/ShockAwe/data/ROIs_tlrc/group_mask.nii.gz';
-% maskFile = '/home/kelly/ShockAwe/data/ROIs_tlrc/clust_s-n_svc_rVTA.nii';
+inDir = [mainDir 'results_' irf];  % relative to subject directory
+outDir = mainDir 'ttests_' irf];  % relative to subject directory
+saveFiles = 0; % if 1, save out nifti and afni files
+
+maskFile = [mainDir 'ROIs_tlrc/group_mask.nii.gz'];
+
 
 fileStr = 'shock';  % get all files from a directory w/this fileStr in file name
 volIdx = 1;   %  run ttest on volIdx volume of 4d nifti files

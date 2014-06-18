@@ -10,7 +10,7 @@ function outNii = makeGlmNifti(refNii, fname, varargin)
 
 outNii = refNii;
 
-suffix = strfind('.nii', fname);
+suffix = strfind(fname,'.nii');
 if isempty(suffix)
     fname = [fname,'.nii.gz'];
 end
