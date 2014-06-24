@@ -1,4 +1,5 @@
-% fit the model to pre-processed fmri data and save out the results
+% script for fitting a glm to subjects' pre-processed fmri data and 
+% saving the results 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -16,11 +17,11 @@ gSpace = 'tlrc';  % '' for native space
 
 matName = ['design_mats/glm_',irf,irf_param_str,'wTRs.mat'];
 
-funcFile = ['afni/all_scaled_s5_',gSpace,'.nii.gz'];
+funcFile = ['all_scaled_s' gSpace '.nii.gz'];
 
-maskFile = '/home/kelly/ShockAwe/data/ROIs_tlrc/group_mask.nii.gz';
+maskFile = '/Users/Kelly/ShockAwe/data/ROIs_tlrc/group_mask.nii.gz';
 
-outDir = ['/home/kelly/ShockAwe/data/results_',irf,'_s5'];  % relative to subject directory
+outDir = ['/Users/Kelly/ShockAwe/data/results_' irf];  % relative to subject directory
 
 stims = {'juice','neutral','shock'};
 
@@ -31,7 +32,7 @@ stims = {'juice','neutral','shock'};
 
 mask=readFileNifti(maskFile);
 
-for s =2:18
+for s =9:18
     
     subject = subjects{s};
     
@@ -48,12 +49,11 @@ for s =2:18
     % fit model to data
     stats = glm_fmri_fit_vol(data,X,regIndx,mask.data);
     
-    
     cd(outDir);
     
     for c = 1:length(stims)
-        outName = [subject,'_',stims{c},'_betas'];
-        outNii = makeGlmNifti(mask,outName,stats.B(:,:,:,[strmatch(stims{c},regLabels)]));
+        outName = [subject '_' stims{c} '_beta_series'];
+        outNii = makeGlmNifti(mask,outName,'single-trial beta estimates',stats.B(:,:,:,[strmatch(stims{c},regLabels)]));
         writeFileNifti(outNii); 
     end
     

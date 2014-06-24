@@ -145,7 +145,7 @@ for j = runs
             
         case 'tent'
             
-            stim_reg = afniTent(trigs, onsets, params);
+            stim_reg = makeFIRRegs(trigs, onsets, params);
             
     end
     
