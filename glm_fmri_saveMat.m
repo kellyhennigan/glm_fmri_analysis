@@ -4,66 +4,52 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% define files, params, etc
 
-subjects = getSASubjects('fmri');
-% subjects={'sa26'};
-% subjects = getSASubjects('hab');
+subj = '18';
 
-runs = [1:3]; % scan runs to include
+[~,cb]=getSA2Subjects(subj);
 
-% irf = 'tent'; % spm_hrf, per_trial, or tent
-% irfParamsStr = '_0_10_6';
+context_runs = {'base','base','base','stress','stress','stress'}; % baseline or stress context
 
-% irf = 'spm_hrf';
-irf='per_trial';
-irfParamsStr = '_6_16_1_1_10_0_32';
-% irfParamsStr = '_8_16_1_1_10_0_32';
+runs = 1:6; % scan runs to include
 
-outMatName = ['glm_',irf, irfParamsStr];
+pa=getSA2Paths(subj);
+
+nVols = 326; % vector w/corresponding # of vols/run, or one scalar to use the same value for all runs
+
+irf = 'spm_hrf'; 
+% irfParamsStr = '';
+
+outMatStr = ['glm_',irf, irfParamsStr];
 % outMatName = 'glm_habPPI.mat';
 
 %%%%% Regressors of interest %%%%%
 
-regFiles = {['regs/juiceslide_',irf, irfParamsStr],...
-    ['regs/neutralslide_',irf, irfParamsStr],...
-    ['regs/shockslide_',irf, irfParamsStr]};
-
-stims = {'juice','neutral','shock'}; % should correspond to regFiles
+stims = {'gain+1','gain+PE','gain0','gain-PE','loss-1','loss-PE','loss0','loss+PE',...
+    'contextevent','shock','cuepair1','cuepair2'};
 
 
 %%%%% Baseline/Nuisance regressors %%%%%
 
-motionRegsFile = 'afni/vr.1D'; % leave as '' to not include
+motionRegsFiles = {'vr_run.1D','vr_run2.1D','vr_run3.1D','vr_run4.1D','vr_run5.1D','vr_run6.1D'};
 
-nPolyRegs = 3; % 1st is constant, 2nd is linear, 3rd is quadratic, etc.
+% number of polynomial baseline regressors to include for each scan run
+nPolyRegs = 5; % should be at least 1, +1 more for every 2.5 min of continuous scanning
 
-censor_first_trs = 3; % # of first scans to censor; use [] to censor none
+censor_trs = []; % vols to censor bc of bad movement or otherwise
 
-TRreg = 1; % 1 to include TRs as a regressor
-if TRreg
-    outMatName = [outMatName,'wTRs'];
-end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% subject loop
-
-for s = 1:length(subjects)
-%     for s=11
-    subject = subjects{s};
+%% do it
+%  
     
-    if strcmp(subject,'sa26')
-        runs = [1,3];
-    else
-        runs = [1:3];
-    end
-    
-    expPaths = getSAPaths(subject);
+    pa = getSA2Paths(subj);
     
     %% Design matrix
     
-    [X, regLabels, regIndx] = glm_fmri_mat(expPaths, subject, runs, stims, regFiles,...
-        motionRegsFile, nPolyRegs, censor_first_trs, TRreg);
+    [X, regLabels, regIndx] = glm_fmri_mat(pa, subject, runs, stims, ...
+        motionRegsFiles, nPolyRegs, censor_first_trs);
     
     %% save it
     

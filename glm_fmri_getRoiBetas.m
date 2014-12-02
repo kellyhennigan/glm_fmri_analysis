@@ -1,4 +1,4 @@
-function [B,oCount] = glm_fmri_getRoiBetas(roiNii,betaDir,betaFStr,omitOutliers,omitBSOutliers)
+function [B,oCount] = glm_fmri_getRoiBetas(roiNii,betaDir,betaFStr,omitOutliers)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -18,19 +18,12 @@ function [B,oCount] = glm_fmri_getRoiBetas(roiNii,betaDir,betaFStr,omitOutliers,
 %     betaFStr- file identifier string specifying the files to get betas
 %               from, e.g., 'shock','sn_corr',etc. Will also use subject
 %               strings to id files to use.
-%     omitOutliers (optional) - if set to 1, voxel betas with an
-%               abs(zscore)>3 with regard to other roi voxels will be
-%               omitted from the roi beta estimation. Default is 0 (to not
-%               omit outliers). 
-%     omitBSOutliers (optional) - this option pertains only to beta series
-%               estimates, or beta estimates that are samples from the same 
-%               normally distributed population. If set to 1/true, then 
-%               beta estimates with an abs(zscore) > 3 with regard to the
-%               other betas in a series will be set to nan in order to omit
-%               that trial from correlation analyses. NOTE: USE THIS
-%               CAREFULLY as it is not valid for beta estimates that come
-%               from different distributions. Default is 0 (to not omit
-%               outliers).
+%     omitOutliers (optional) - if set to 1, roi betas with an
+%               abs(zscore)>3 with regard to other roi betas in the series
+%               will be set to NaN. Default is 0 (to not omit outliers).
+%               This should only be used if the beta series come from a
+%               normal distribution.
+
 
 
 % OUTPUTS:
@@ -48,12 +41,10 @@ if ischar(roiNii)
     roiNii = readFileNifti(roiNii);
 end
 
-if notDefined('omitOutliers')
-    omitOutliers = 0;
-end
 
-if notDefined('omitBSOutliers')
-    omitBSOutliers = 0;
+if notDefined('omitOutliers') || omitOutliers==0
+    omitOutliers = 0;
+    oCount = NaN;
 end
 
 
@@ -81,26 +72,20 @@ for s = 1:length(a)
     w = repmat(w,1,size(vox_betas,2));
     
     
+    % average across non-zero (roi) voxels. The mean is weighted by the
+    % values in roiNii.data
+    roi_betas = (nansum(w.*vox_betas,1)./nansum(w,1));
+    
+    
     if omitOutliers
         
-        oidx=find(abs(zscore(vox_betas,0,2))>3);
-        vox_betas(oidx) = nan;
-        w(oidx) = nan;
+        oidx=find(abs(zscore(roi_betas))>3);
+        oCount(s) = numel(oidx);
+        roi_betas(oidx) = nan;
         
     end
     
-    % average across non-zero (roi) voxels. The mean is weighted by the
-    % values in roiNii.data
-    B(s,1:size(vox_betas,2))= (nansum(w.*vox_betas)./nansum(w));
-    
-     if omitBSOutliers
-        
-        oidx2=find(abs(zscore(B(s,1:end),[],2))>3);
-        oCount(s) = length(oidx2);
-        B(s,oidx2) = nan;
-        
-     end
-  
+    B(s,1:numel(roi_betas)) = roi_betas;
     
 end
 

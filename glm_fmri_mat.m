@@ -1,9 +1,10 @@
-function [X, regLabels, regIndx] = glm_fmri_mat(expPaths, subject, runs, ...
-    stims, regFiles, motionRegsFile, nPolyRegs, censor_first_trs, TRreg)
+function [X, regLabels, regIndx] = glm_fmri_mat(expPaths, subj, runs, ...
+    stims, motionRegsFiles, nPolyRegs, censor_trs)
 
 % creates a design matrix for specified regressors of interest and baseline
 % regressors
-%
+
+    
 
 %%%%%%% INPUTS:
 
@@ -11,12 +12,10 @@ function [X, regLabels, regIndx] = glm_fmri_mat(expPaths, subject, runs, ...
 % subject - subject id string
 % runs - scan runs to include
 % stims - cell array of stim labels corresponding to regFiles
-% regFiles - file names containing regressor time series
-% motionRegsFile - name of file containing motion regressors to include
+% motionRegsFiles - name of file containing motion regressors to include
 % nPolyRegs - number of baseline regressors to include.  1 is a constant, 2
 %   for a linear trend, 3 is quadratic, etc.
-% censor_first_trs - integer specifying the # of volumes to censor at the
-%   beginning of each run. Giving [] or 0 means none will be excluded.
+% censor_trs - integer specifying the volumes to censor if desired.
 
 
 %%%%%%% OUTPUTS:
@@ -38,7 +37,7 @@ regIndx = [];   % 1,2, etc. for stim of interest; baseline regs will be 0
 
 cd(expPaths.subj);
 
-fprintf('\n\nMaking design matrix for subject %s...\n', subject);
+fprintf('\n\nMaking design matrix for subject %s...\n', subj);
 
 
 %% get regressors of interest  
@@ -70,8 +69,8 @@ stimRegs = horzcat(stimRegs{:});
 
 % ****** so only use columns 2-7 as regressors *******
 
-if motionRegsFile
-    motionRegs = dlmread(motionRegsFile);
+if motionRegsFiles
+    motionRegs = dlmread(motionRegsFiles);
     motionRegs = motionRegs(:,2:7);  % assumes afni format of motion regs file
     n_regs = size(motionRegs,2); % # of motion regs
     regLabels = [regLabels, repmat({'motion'}, [1 n_regs])];
@@ -86,7 +85,7 @@ nPCols = nPolyRegs*numel(runs);   % # of regressor columns for nPolyRegs/run
 for j = 1:numel(runs)                 % runs
     
     % get scan triggers to check # of vols/run
-    trigFile = fullfile(expPaths.slicetimes, [subject,'_', num2str(runs(j)), '_slicetimes.txt']);
+    trigFile = fullfile(expPaths.slicetimes, [subj,'_', num2str(runs(j)), '_slicetimes.txt']);
     trigs = dlmread(trigFile,'',1,0);
     
     % polynomial drift regressors
@@ -127,7 +126,7 @@ if TRreg
     
     TRs = [];
     for j = 1:numel(runs)
-        trigFile = fullfile(expPaths.slicetimes, [subject,'_', num2str(runs(j)), '_slicetimes.txt']);
+        trigFile = fullfile(expPaths.slicetimes, [subj,'_', num2str(runs(j)), '_slicetimes.txt']);
         trigs = dlmread(trigFile,'',1,0);
         runTRs = trigs(2:end)-trigs(1:end-1);
         TRs = [TRs;0;runTRs];

@@ -53,19 +53,21 @@ end
 
 
 % if regIdx isnt given, set it to empty
-if ~exist('regIdx','var')
+if notDefined('regIdx')
     regIdx = [];
 end
 
 
-% if a mask is given, get an index of voxels to include
-if exist('mask','var')
+% if no mask is given, get stats for all voxels 
+if notDefined('mask')
+      idx = 1:nvox; 
+      
+else  % if a mask is given, define an index for all voxels within the mask
     if dim(1:3) ~= size(mask)
         error('data and mask dimensions must agree\n\n');
     end
+    
     idx = find(mask~=0);
-else  % if no mask is given, include all voxels
-    idx = 1:nvox;
 end
 
 
@@ -81,7 +83,7 @@ stats = glm_fmri_fit(data(:,idx),X,regIdx); % fit model to masked data
 fnames = fieldnames(stats);
 
 for i = 1:numel(fnames)
-    thisStat = zeros(size(getfield(stats,fnames{i}),1),nvox); % array of zeros
+    thisStat = single(zeros(size(getfield(stats,fnames{i}),1),nvox)); % array of zeros
     thisStat(:,idx) = getfield(stats,fnames{i}); % fill in stats for modeled voxels 
     stats=setfield(stats,fnames{i},reshape(thisStat',[dim(1:3),size(thisStat,1)])); % put reshaped data in out struct
 end

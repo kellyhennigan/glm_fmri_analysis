@@ -1,4 +1,4 @@
-function M = makeFIRRegs(trigs,onsets,irf_params)
+function M = createFIRRegs(vat,onsets,irf_params)
 
 % Create regressors using a Finite Impulse Response model
 
@@ -11,8 +11,10 @@ function M = makeFIRRegs(trigs,onsets,irf_params)
 
 % INPUTS:
 
-% trigs - volume acquisition times
-% onsets - vector of stim onset times (relative to trigs times)
+% vat - volume acquisition times in units of seconds. If there's a
+%       constant TR, this should be 0:TR:nVols*TR. Can handle variable TRs.
+
+% onsets - vector of stim onset times (relative to t time/same unit of time)
 
 % irf_params - 1x3 vector [b,c,n] where:
     % b -  beginning of time window to model relative to stim onset
@@ -21,7 +23,7 @@ function M = makeFIRRegs(trigs,onsets,irf_params)
   
 % OUTPUTS: 
 
-% M - regressor matrix of numel(trigs) rows and nKnot columns
+% M - regressor matrix of numel(vat) rows and nKnot columns
 
 % note that for the first and last 'knot', only right and left half of the
 % tent regressors will be estimated respectively
@@ -39,12 +41,12 @@ n = irf_params(3);
 L = (c-b)./(n-1);
 knot_times = b:L:c;
 
-M = zeros(numel(trigs), n); % matrix for event of interest regressors
+M = zeros(numel(vat), n); % matrix for event of interest regressors
 
 for m = 1:numel(onsets) % onsets
     
     stim_onset = onsets(m);
-    t = trigs - stim_onset; % trig time relative to stim_onset
+    t = vat - stim_onset; % trig time relative to stim_onset
     
     for p = 1:numel(knot_times)      % knot_times
     

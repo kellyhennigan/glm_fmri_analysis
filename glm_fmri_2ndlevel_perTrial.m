@@ -15,22 +15,30 @@
 clear all
 close all
 
-inDir = ['/Users/Kelly/ShockAwe/data/results_per_trial'];  % relative to subject directory
-outDir = ['/Users/Kelly/ShockAwe/data/ttests_per_trial'];  % relative to subject directory
+mainDir = '/Users/Kelly/ShockAwe/data/';
+
+v = 'new';  % 'noTRs', 'new',' or 'old'
+
+inDir = [mainDir 'results_per_trial_' v];  % directory containing subject beta series maps contains bet
+outDir = [mainDir 'ttests_per_trial_' v];  % directory to save out results to
 
 saveStatMap = 1; % if 1/true, save out stat maps as nifti files
 
-maskFile = '/Users/Kelly/ShockAwe/data/ROIs_tlrc/group_mask.nii.gz';
+maskFile = [mainDir 'ROIs_tlrc/group_mask.nii.gz'];
+% maskFile = [mainDir 'ROIs_tlrc/ACC_bs.nii.gz'];
 
+
+% these strings will be used to identify nifti files to load from inDir
 stims = {'shock','neutral'};
 
 N = 18;
 
-seedStr = 'peakLHab'; % string to use for out files
 
 % provide string specifying the directory where seed beta series are
 % saved
-seedBDir = '/Users/Kelly/ShockAwe/data/betas/';
+seedBDir = ['/Users/Kelly/ShockAwe/data/betas/' v];
+
+seedStr = 'mb'; % string to identify seed roi betas & to use for out files
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -45,7 +53,7 @@ idx = find(mask.data);
 for c = 1:length(stims)
     
     % load seed betas
-    seedBs = dlmread([seedBDir seedStr '_' stims{c} '_per_trial_betas'])';
+    seedBs = dlmread(fullfile(seedBDir, [seedStr '_' stims{c} '_per_trial_betas']))';
     
     % load voxel betas
     cd(inDir);
@@ -85,23 +93,19 @@ switch numel(stims)
         testStat = stats.tstat;
         df = mode(stats.df); % take the mode in case of random NaN voxels
         
-        % mean Z across subjects for every voxel
-        meanStatMap = mask.data;
-        meanStatMap(idx) = mean(Z,1);
-        
+        outNameStr = [seedStr '_' stims{1} '_T_p'];
         descrip = ['one sample t-test; df(' num2str(df) '); vol1=t-stat; vol2=p'];
+        
         
     case 2  % H0: B1 = B2
         
         [~,p,~,stats] = ttest(Z(:,1,:),Z(:,2,:));
         testStat = stats.tstat;
         df = mode(stats.df); % take the mode in case of random NaN voxels
-        
-        % mean Z across subjects for every voxel
-        meanStatMap = mask.data;
-        meanStatMap(idx) = nanmean(Z(:,1,:)-Z(:,2,:),1);
-        
+ 
+        outNameStr = [seedStr '_' stims{1} '-' stims{2} '_T_p'];
         descrip = ['paired sample t-test; df(' num2str(df) '); vol1=t-stat; vol2=p'];
+        
         
     case 3 % H0: B1 = B2 = B3
         
@@ -109,15 +113,17 @@ switch numel(stims)
         % how can I do this without using a for loop?? :/
         for v = 1:size(Z,3)
             vox_betas = Z(:,:,v);
-            [p(v),table]=anova_rm(Z(:,:,v),'off');
-            testStat(v) = table{2,5};  % F-statistic
+           [this_p,table]=anova_rm(Z(:,:,v),'off');
+             p(v) = this_p(1);
+             testStat(v) = table{2,5};  % F-statistic
             df1(v)=table{2,3}; df2(v)=table{4,3}; % degrees of freedom (between conds, error)
         end
         df(1) = mode(df1); df(2) = mode(df2);
         
-        meanStatMap = []; % not sure what makes sense for a meanStatMap here
-        
+        outNameStr = [seedStr '_' stims{1} '-' stims{2} '-' stims{3} '_F_p'];
         descrip = ['rep_meas_ANOVA; df(' num2str(df(1)) ',' num2str(df(2)) '); vol1=Fstat; vol2=p'];
+
+
 end
 
 % test-stat (F or t)
@@ -130,8 +136,8 @@ pMap(idx) = p;
 
 
 if saveStatMap
-    cd(outDir);
-    outNii = makeGlmNifti(mask,[seedStr '_' stims{1},'-',stims{2}],descrip,testStatMap,pMap);
+    cd(outDir); 
+    outNii = makeGlmNifti(mask,outNameStr,descrip,testStatMap,pMap);
     writeFileNifti(outNii);
 end
 

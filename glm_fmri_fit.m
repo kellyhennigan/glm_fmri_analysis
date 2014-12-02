@@ -28,11 +28,14 @@ function stats = glm_fmri_fit(Y,X,regIdx)
 
 % kelly Nov 2013
 
+% see: http://www.fil.ion.ucl.ac.uk/spm/doc/books/hbf2/pdfs/Ch8.pdf
+%   for more info on fmri model fitting
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% define some useful variables 
 
-[n,p] = size(X);  % # of observations and model parameters
+[n,p] = size(X);  % N observations and P model parameters
 
 % degrees of freedom
 df_t = n - 1;     % total degrees of freedom
@@ -53,7 +56,7 @@ end
 
 fprintf('\nfitting the model...\n');
 
-B = pinv(X'*X)*X'*Y;    % fit model to data with OLS
+B = pinv(X'*X)*X'*Y;    % pinv(x) gives the (Moore-Penrose) pseudo inverse of x
 
 Yhat = X*B;             % model's prediction for Y
 
@@ -77,7 +80,7 @@ tB = B ./ seB;     % distributed as t w/ n-2 df
 
 pB = 1 - tcdf(abs(tB), n-2);  % p-value for t-stat
 
-Rsq = 100 * (1 - (SSe ./ SSt) ); % Rsquared; coefficient of multiple determination
+Rsq = 1 - (SSe ./ SSt) ; % Rsquared; coefficient of multiple determination
 
 fprintf('done.\n');
 
@@ -95,8 +98,8 @@ stats.err_ts = err_ts;  % residuals
 stats.df_err = df_e;    % error degrees of freedom
 
 
-%% if regIdx is given, test the null hypothesis that the full model is 
-% no better than the baseline model
+%% if regIdx is given, test the null hypothesis that the full model 
+% is no better than the baseline model
 
 % full model = baseline + regressors of interest
 % baseline model         = X(regIdx==0)
@@ -125,7 +128,14 @@ stats.df_err = df_e;    % error degrees of freedom
 %      F  =   -----------------------------------------   
 %                        MSe (full model) 
 
-%  where F is distributed with (? params, df_error) degrees of freedom
+%  where F is distributed with (p -1 , n - p) degrees of freedom
+
+% or equivalently: 
+
+%                           Rsq * (n - p)
+%   F(n-1,n-p)  =   -----------------------------------------   
+%                        (1 - Rsq) * (p - 1)
+
 
 
 if isequal(size(regIdx,2),p)  % if regIdx is given, conduct an F-test
@@ -137,7 +147,7 @@ if isequal(size(regIdx,2),p)  % if regIdx is given, conduct an F-test
     SSe0 = sum( (Y - Yhat0).^2 );  % SSe for baseline model
     
     delta_p = count(regIdx~=0); % ? params from baseline > full model 
-    Fstat = ((SSe0 - SSe)/delta_p) / MSe; % (? SSe / ? params from reduced > full model) / MSe (full model)
+    Fstat = ((SSe0 - SSe)./repmat(delta_p,1,size(SSe,2))) ./ MSe; % (? SSe / ? params from reduced > full model) / MSe (full model)
     pF = 1-fcdf(abs(Fstat),delta_p,df_e);  % F is distributed with (? params, df_error) degrees of freedom
 
     % add some stats to the output structural array 

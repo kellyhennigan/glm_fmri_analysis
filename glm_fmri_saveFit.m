@@ -1,5 +1,5 @@
-% script for fitting a glm to subjects' pre-processed fmri data and 
-% saving the results 
+% script for fitting a glm to subjects' pre-processed fmri data and
+% saving the results
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -7,21 +7,21 @@
 
 subjects = getSASubjects('fmri');
 
-irf='per_trial';
+% irf='per_trial';
 % irf = 'spm_hrf';
-irf_param_str = '_6_16_1_1_10_0_32';
-% irf = 'tent';
-% irf_param_str = '_0_10_6';
+% irf_param_str = '_6_16_1_1_6_0_32';
+irf = 'tent';
+irf_param_str = '_0_10_6';
 
 gSpace = 'tlrc';  % '' for native space
 
-matName = ['design_mats/glm_',irf,irf_param_str,'wTRs.mat'];
+matName = ['glm_',irf,irf_param_str '.mat'];
 
 funcFile = ['all_scaled_s' gSpace '.nii.gz'];
 
-maskFile = '/Users/Kelly/ShockAwe/data/ROIs_tlrc/group_mask.nii.gz';
+maskFile = '/Users/Kelly/ShockAwe/data/ROIs_tlrc/new/llatSN_F.nii.gz';
 
-outDir = ['/Users/Kelly/ShockAwe/data/results_' irf];  % relative to subject directory
+outDir = ['/Users/Kelly/ShockAwe/data/results_' irf '_noTRs'];  % relative to subject directory
 
 stims = {'juice','neutral','shock'};
 
@@ -32,15 +32,20 @@ stims = {'juice','neutral','shock'};
 
 mask=readFileNifti(maskFile);
 
-for s =9:18
+for s =1:18
+
     
     subject = subjects{s};
     
     expPaths = getSAPaths(subject);
     cd(expPaths.subj);
     
-    % get design matrix & data
-    load(matName);
+    % get design matrix
+    matPath = fullfile(expPaths.design_mats,matName);
+    load(matPath);
+   
+    
+    % get data
     func = readFileNifti(funcFile);
     
     % remove TRs to censor from the data & the associated rows from the design matrix
@@ -52,11 +57,16 @@ for s =9:18
     cd(outDir);
     
     for c = 1:length(stims)
-        outName = [subject '_' stims{c} '_beta_series'];
-        outNii = makeGlmNifti(mask,outName,'single-trial beta estimates',stats.B(:,:,:,[strmatch(stims{c},regLabels)]));
-        writeFileNifti(outNii); 
+        
+
+        out_descrip = ['glm file: ' matName];
+       
+        outName = [subject '_' stims{c} '_betas'];
+        outNii = makeGlmNifti(mask,outName,out_descrip,stats.B(:,:,:,[strmatch(stims{c},regLabels)]));
+        writeFileNifti(outNii);
+        
+        
     end
-    
     
     clear expPaths func X
     
