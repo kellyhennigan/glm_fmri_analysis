@@ -78,7 +78,7 @@ seB = sqrt(diag(pinv(X'*X))*MSe);   % standard error of beta coefficients
 
 tB = B ./ seB;     % distributed as t w/ n-2 df
 
-pB = 1 - tcdf(abs(tB), n-2);  % p-value for t-stat
+pB = (1 - tcdf(abs(tB), df_e))./2;  % p-value for t-stat
 
 Rsq = 1 - (SSe ./ SSt) ; % Rsquared; coefficient of multiple determination
 
