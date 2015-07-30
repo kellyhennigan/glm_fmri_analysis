@@ -3,7 +3,8 @@ function stats = glm_fmri_fit(Y,X,regIdx)
 %%%%%%%%%%%%%%%%%%%%%% INPUTS:
 
 % Y - time series w/n observations in rows (can be 1 or more time series)
-% X - design matrix of regressors
+% X - design matrix of regressors. First column must be all ones to model
+%     a constant mean.
 % regIdx - (optional) column vector w/length equal to the # of regressors;
 % 0 for baseline and >=1 for regressors of interest
 

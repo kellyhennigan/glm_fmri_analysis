@@ -1,4 +1,4 @@
-function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_range,plane,acpcSlices,doPlot)
+function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_range,plane,acpcSlices,doPlot,autoCrop,plotCBar)
 %cmap,c_range,plane,acpcSlices)
 % overlay rgb maps onto gray scaled anatomical background
 %
@@ -14,7 +14,9 @@ function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_
 %     acpcSlices - slices to plot in acpc coords; default is the mode
 %           activation slice
 %     doPlot - 0 to not plot figure; default is to plot (doPlot=1)
-%
+%     autoCrop - 0 for yes, inf for no
+%     plotCBar - plot color bar used for overlay. Default is no
+
 % % OUTPUTS:
 %     imgRgbs - cell array of M x N x 3 arrays with r,g,b values along
 %              the 3rd dimension
@@ -31,20 +33,39 @@ function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_
 % based heavily on Bob's mrAnatOvelayMontage() function
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 
-vol = nii.data(:,:,:,1); % overlay volume
+% user must provide nii or t1 at the minimum. Otherwise, I'm not sure what
+% this function would be doing.
+if notDefined('nii') && notDefined('t1')
+    error('please provide a nifti overlay and/or anatomical volume.');
+end
+
+% if no nii, define a volume of zeros w/the same dimensions as the t1 nifti
+if notDefined('nii')
+    nii = createNewNii(t1);
+end
+
+% if no t1, just define a nifti file w/overlay header info and zero data
+if notDefined('t1')
+    t1 = createNewNii(nii);
+    t1.data(nii.data~=0) = 1; % do this so auto-crop doesn't go crop-crazy
+end
+
+vol = double(nii.data(:,:,:,1)); % overlay volume
 xform = nii.qto_xyz;     % it's img to acpc xform
 t1Vol = double(t1.data); % structural volume for background
 t1Xform = t1.qto_xyz;    % it's img to acpc xform
 
-    
+
 % if an argument isn't given then assign default values
 if notDefined('cmap')
     cmap = autumn;
 end
 
+% if c_range isn't defined, base it on the 10-90%tile of vals in overlay
 if notDefined('c_range')
-    c_range = [min(vol(vol~=0)), max(vol(vol~=0))];
+    c_range = [prctile(vol(vol~=0),10),prctile(vol(vol~=0),90)];
 end
 
 
@@ -52,10 +73,17 @@ if notDefined('plane')
     plane = 3; % default to axial slices
 end
 
+
 if notDefined('acpcSlices')
     [vi, vj, vk] = ind2sub(size(vol),find(vol));
     acpcCoords = mrAnatXformCoords(xform,[vi vj vk]);
     acpcSlices = round(unique(acpcCoords(:,plane)));
+end
+if strcmp(acpcSlices,'best')
+    [vi, vj, vk] = ind2sub(size(vol),find(vol));
+    acpcCoords = mrAnatXformCoords(xform,[vi vj vk]);
+    acpcSlices = round(unique(acpcCoords(:,plane)));
+    acpcSlices=median(acpcSlices);
 end
 
 if size(acpcSlices,1)>1
@@ -67,8 +95,19 @@ if notDefined('doPlot')
     doPlot = 1;
 end
 
+% if autocrop isn't defined, set to inf to not do it (set to 0 to do it)
+if notDefined('autoCrop')
+    autoCrop = inf;
+end
 
-lm=linspace(c_range(1),c_range(2),length(cmap))'; % values to color mapping
+% if an argument isn't given then assign default values
+if notDefined('plotCBar')
+    plotCBar = 0;
+end
+
+%%
+
+lm=linspace(c_range(1),c_range(2),size(cmap,1))'; % values to color mapping
 
 scSize = get(0,'ScreenSize'); % get screensize for pleasant figure viewing :)
 
@@ -80,8 +119,9 @@ scSize = get(0,'ScreenSize'); % get screensize for pleasant figure viewing :)
 
 %% autocrop borders
 
-autoCropBorder = inf; % set to inf for no autocropping 
-% 
+% autoCropBorder = inf;
+autoCropBorder = autoCrop; % set to inf for no autocropping
+%
 if(isfinite(autoCropBorder))
     tmp = sum(t1Vol,3);
     x = find(sum(tmp,1)); x = [x(1) x(end)];
@@ -100,11 +140,13 @@ end
 
 %% resample vol to be same size as t1Vol w/same dimensions
 
+% [~,~,t1_vox_dim,~] = affineDecompose(t1Xform);
 bb = t1Xform*[1,1,1,1;[size(t1Vol),1]]'; % bounding box for resampled vol
 bb = bb(1:3,:)';
 interp = [0 0 0 0 0 0]; % [1 1 1 0 0 0] for trilinear interpolation
 % interp = [0 0 0 7 7 7]; % [1 1 1 0 0 0] for trilinear interpolation
 
+% vol = mrAnatResliceSpm(vol, inv(xform), bb, t1_vox_dim, interp, false);
 vol = mrAnatResliceSpm(vol, inv(xform), bb, t1.pixdim, interp, false);
 
 resNiiVol = vol; % to return as output
@@ -118,8 +160,8 @@ switch plane
         slStr = 'x = ';
         
     case 2 % coronal; top of the head is up
-        t1Vol = permute(t1Vol,[3 1 2]); t1Vol = flipdim(t1Vol,1); 
-        vol = permute(vol,[3 1 2]); vol = flipdim(vol,1); 
+        t1Vol = permute(t1Vol,[3 1 2]); t1Vol = flipdim(t1Vol,1);
+        vol = permute(vol,[3 1 2]); vol = flipdim(vol,1);
         imgCoords = round(mrAnatXformCoords(inv(t1Xform),[ones(1,length(acpcSlices));acpcSlices;ones(1,length(acpcSlices))]));
         slStr = 'y = ';
         
@@ -164,15 +206,15 @@ for i = 1:length(imgSlices)
         axis equal; axis off;
         set(gca,'Position',[0,0,1,1]);
         text(size(sl,2)-20,size(sl,1)-20,[slStr,num2str(acpcSlices(i))],'color',[1 1 1])
-    
-     else
+        
+    else
         h = []; % return empty figure handle if not plotting
-   
+        
     end
     
     
-    % put output variables into a cell array 
-    imgRgbs{i} = imgRgb; % rgb images for each slice plotted 
+    % put output variables into a cell array
+    imgRgbs{i} = imgRgb; % rgb images for each slice plotted
     olMasks{i} = olMask; % binary masks indicating voxels w/overlay values
     olVals{i} = sl;      % values corresponding to plotted overlays. If the overlay wasn't resampled to match the bg image, these will be the same as what was given as input nii.data(:,:,:,1)
     
@@ -180,21 +222,23 @@ for i = 1:length(imgSlices)
 end % slices
 
 %% plot a colorbar as a separate figure
-% 
-% figure
-% pos = get(gcf,'Position');
-% set(gcf,'Position',[scSize(3)-pos(3), 60, pos(3), 100])
-% image(1:length(lm))
-% colormap(cmap)
-% xticks = get(gca,'XTick');
-% xticks = interp1([1 length(cmap)],c_range,xticks);
-% xticks=num2str(xticks',2);
-% set(gca,'XTickLabel',xticks)
-% set(gca,'YTickLabel',[])
-% set(gca,'box','off');
-% set(gcf,'Color','w','InvertHardCopy','off','PaperPositionMode','auto');
-% title('Colorbar')
-% 
-end % end of function 
+%
+if plotCBar
+    figure
+    pos = get(gcf,'Position');
+    set(gcf,'Position',[scSize(3)-pos(3), 60, pos(3), 100])
+    image(1:length(lm))
+    colormap(cmap)
+    xticks = get(gca,'XTick');
+    xticks = interp1([1 length(cmap)],c_range,xticks);
+    xticks=num2str(xticks',2);
+    set(gca,'XTickLabel',xticks)
+    set(gca,'YTickLabel',[])
+    set(gca,'box','off');
+    set(gcf,'Color','w','InvertHardCopy','off','PaperPositionMode','auto');
+    title('Colorbar')
+end
+
+end % end of function
 
 
