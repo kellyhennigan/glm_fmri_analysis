@@ -1,4 +1,4 @@
-function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_range,plane,acpcSlices,doPlot,autoCrop,plotCBar)
+function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_range,plane,acpcSlices,doPlot,autoCrop,plotCBar,plotToScreen)
 %cmap,c_range,plane,acpcSlices)
 % overlay rgb maps onto gray scaled anatomical background
 %
@@ -16,6 +16,7 @@ function [imgRgbs,olMasks,olVals,h,acpcSlices] = plotOverlayImage(nii,t1,cmap,c_
 %     doPlot - 0 to not plot figure; default is to plot (doPlot=1)
 %     autoCrop - 0 for yes, inf for no
 %     plotCBar - plot color bar used for overlay. Default is no
+%     plotToScreen - 1 to plot to screen; otherwise 0. Default is 1
 
 % % OUTPUTS:
 %     imgRgbs - cell array of M x N x 3 arrays with r,g,b values along
@@ -65,7 +66,7 @@ end
 
 % if c_range isn't defined, base it on the 10-90%tile of vals in overlay
 if notDefined('c_range')
-    c_range = [prctile(vol(vol~=0),10),prctile(vol(vol~=0),90)];
+    c_range = quantile(vol(vol~=0),[.1 .9]);
 end
 
 
@@ -103,6 +104,11 @@ end
 % if an argument isn't given then assign default values
 if notDefined('plotCBar')
     plotCBar = 0;
+end
+
+% default is to plot to screen
+if notDefined('plotToScreen')
+    plotToScreen = 1; % default is to plot to screen.
 end
 
 %%
@@ -166,8 +172,8 @@ switch plane
         slStr = 'y = ';
         
     case 3 % axial; eyes looking up
-        t1Vol = permute(t1Vol,[2 1 3]);  t1Vol = flipdim(t1Vol,1);
-        vol = permute(vol,[2 1 3]); vol = flipdim(vol,1);
+        t1Vol = permute(t1Vol,[2 1 3]); % t1Vol = flipdim(t1Vol,1);
+        vol = permute(vol,[2 1 3]); %vol = flipdim(vol,1);
         imgCoords = round(mrAnatXformCoords(inv(t1Xform),[ones(1,length(acpcSlices));ones(1,length(acpcSlices));acpcSlices]));
         slStr = 'z = ';
 end
@@ -191,7 +197,7 @@ for i = 1:length(imgSlices)
     
     % overlay rgb image w/rgb values from the colormap
     olRgb = olMask;
-    [~,ci]=pdist2(lm,sl(abs(sl)>0),'euclidean','smallest',1); % ci is the colormap index for that voxel
+    [~,ci]=pdist2(single(lm),single(sl(abs(sl)>0)),'euclidean','smallest',1); % ci is the colormap index for that voxel
     olRgb(idx_ol) = cmap(ci,:);   % fills in rgb values for each overlay voxel
     
     % rgb image w/anatomical background & rgb overlay
@@ -199,7 +205,12 @@ for i = 1:length(imgSlices)
     imgRgb(idx_ol) = olRgb(idx_ol);
     
     if doPlot
-        h{i} = figure;
+        
+        if plotToScreen
+            h{i} = figure;
+        else
+            h{i} = figure('Visible','off');
+        end
         pos = get(gcf,'Position');
         set(gcf,'Position',[scSize(3)-pos(3), scSize(4)-pos(4), pos(3), pos(4)]) % put the figure in the upper right corner of the screen
         image(imgRgb)
@@ -224,7 +235,11 @@ end % slices
 %% plot a colorbar as a separate figure
 %
 if plotCBar
-    figure
+    if plotToScreen
+        figure;
+    else
+        figure('Visible','off');
+    end
     pos = get(gcf,'Position');
     set(gcf,'Position',[scSize(3)-pos(3), 60, pos(3), 100])
     image(1:length(lm))

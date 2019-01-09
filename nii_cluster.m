@@ -19,15 +19,15 @@ function [C,nii] = nii_cluster(nii,cl_thresh,cl_connectivity)
 % cluster threshold, March 2013
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-nii.data = nii.data(:,:,:,1); % cluster data from the first volume 
+nii.data = nii.data(:,:,:,1); % cluster data from the first volume
 voxDim = nii.pixdim(1:3); % voxel dimensions
 
-if (~exist('cl_thresh','var') || isempty(cl_thresh)) 
-    cl_thresh=0; 
+if (~exist('cl_thresh','var') || isempty(cl_thresh))
+    cl_thresh=0;
 end
 
-if (~exist('cl_connectivity','var') || isempty(cl_connectivity)) 
-    cl_connectivity=26; 
+if (~exist('cl_connectivity','var') || isempty(cl_connectivity))
+    cl_connectivity=26;
 end
 
 switch cl_connectivity
@@ -36,11 +36,11 @@ switch cl_connectivity
         cl_cutoff = max(voxDim);
         
     case 18 % voxels can share faces or edges
-        cl_cutoff = sqrt((max(voxDim).^2).*2); % voxels with touching corners are clustered together 
-
+        cl_cutoff = sqrt((max(voxDim).^2).*2); % voxels with touching corners are clustered together
+        
     case 26 % voxels can share corners, edges, or faces
         cl_cutoff = sqrt((max(voxDim).^3).*2); % voxels with touching corners are clustered together
-
+        
 end
 
 % define struct w/ cluster info
@@ -52,53 +52,69 @@ C.meanCoord = nan;
 C.maxT = nan;
 C.maxTCoord = nan;
 
-% cluster threshold 
-mask=zeros(size(nii.data)); mask(abs(nii.data)>0)=1;
+% cluster threshold
+mask=zeros(size(nii.data));
+mask(abs(nii.data)>0)=1;
 mask = bwareaopen(mask,cl_thresh,cl_connectivity);
 nii.data = nii.data.*mask;
 
 % get index for remaining voxels; don't include NaNs
 ind = find(abs(nii.data)>0);
 
-if (length(ind)>1)
-
-[ni nj nk]=ind2sub(size(nii.data),ind);
-pts = mrAnatXformCoords(nii.qto_xyz,[ni nj nk]); % acpc Coords
-
-% let matlab find the point clusters
-pd = pdist(pts);
-% dendrogram(linkage(pd))
-cl = cluster(linkage(pd),'cutoff',cl_cutoff,'criterion','distance');
-
-num_cl = max(cl);
-
-for i = 1 : num_cl
+if numel(ind)==1
     
-    cl_ind = find(cl == i);
+    [ni, nj, nk]=ind2sub(size(nii.data),ind);
+    pts = mrAnatXformCoords(nii.qto_xyz,[ni nj nk]); % acpc Coords
+    C.ind = ind;
+    C.vals = nii.data(ind);
+    C.n = 1;
+    C.meanCoord = pts;
+    C.coords = pts;
+    C.maxT = C.vals;
+    C.maxTCoord = pts;
+    
+elseif numel(ind)>1
+    
+    [ni, nj, nk]=ind2sub(size(nii.data),ind);
+    pts = mrAnatXformCoords(nii.qto_xyz,[ni nj nk]); % acpc Coords
+    
+    % let matlab find the point clusters
+    pd = pdist(pts);
+    
+    % dendrogram(linkage(pd))
+    cl = cluster(linkage(pd),'cutoff',cl_cutoff,'criterion','distance');
+    
+    num_cl = max(cl);
+    
+    for i = 1 : num_cl
         
-    these_pts=pts(cl_ind,:);
-    C(i).ind = ind(cl_ind);
-    C(i).vals = nii.data(ind(cl_ind));
-    C(i).n = size(cl_ind, 1);
-    C(i).meanCoord = round(mean(these_pts));
-    [ii, jj, kk] = ind2sub(size(nii.data),C(i).ind);
-    C(i).coords = mrAnatXformCoords(nii.qto_xyz,[ii jj kk]);
-    [~,maxTind] = max(abs(C(i).vals));
-    C(i).maxT = round(C(i).vals(maxTind).*100)./100;
-    C(i).maxTCoord = round(these_pts(maxTind,:));
+        cl_ind = find(cl == i);
+        
+        these_pts=pts(cl_ind,:);
+        C(i).ind = ind(cl_ind);
+        C(i).vals = nii.data(ind(cl_ind));
+        C(i).n = size(cl_ind, 1);
+        C(i).meanCoord = round(mean(these_pts));
+        [ii, jj, kk] = ind2sub(size(nii.data),C(i).ind);
+        C(i).coords = mrAnatXformCoords(nii.qto_xyz,[ii jj kk]);
+        [~,maxTind] = max(abs(C(i).vals));
+        C(i).maxT = round(C(i).vals(maxTind).*100)./100;
+        C(i).maxTCoord = round(these_pts(maxTind,:));
+        
+    end
     
-end
+end % if numel(ind)
 
 % if isempty(fields(C))
 %     disp(['no clusters passed threshold']);
 % else
 %     disp(['returning struct C with info on ',num2str(length(C)),' clusters...']);
 % end
-%  
+%
 
 % else
 %     disp('there are less than 2 nonzero vals in nii.data, returning cluster info as an empty struct')
 
-end 
+
 
 end % function
